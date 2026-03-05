@@ -1,0 +1,296 @@
+{
+  "name": "Telegram AI Service Booking System",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "bcc2b011-2618-44f1-b9c4-00e985f6177b",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "4a302a53-9cf5-4838-b536-fb2f22adceea",
+      "notesInFlow": true,
+      "notes": "Receives incoming messages\nfrom Telegram users and starts the workflow."
+    },
+    {
+      "parameters": {
+        "documentId": "YOUR_PRODUCT_SHEET_ID",
+        "sheetName": "Products",
+        "options": {}
+      },
+      "id": "749ca2c9-7307-4d23-963f-ce0e80ee8405",
+      "name": "Get Products",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        208,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Fetches product/service data from Google Sheets maintained by the shop owner."
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "products",
+        "options": {}
+      },
+      "id": "b2dab376-6ad0-4344-bb42-d978a073c3a7",
+      "name": "Aggregate Products",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Combines all product rows into a single dataset for AI processing."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0917ebf5-34cb-40b3-85e7-4d3750d23a96",
+      "name": "Prepare Query",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        608,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Extracts the user's Telegram message and prepares it for AI analysis."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama3-8b-8192"
+            },
+            {
+              "name": "messages",
+              "value": "={{[{\"role\":\"system\",\"content\":\"You are a service booking assistant.\"},{\"role\":\"user\",\"content\":$json.user_query}]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "abbb2a4d-ff44-4180-bfc1-abaada2d0d3f",
+      "name": "Groq AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        800,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Processes the user query using Groq AI to generate a conversational response."
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{$json.choices[0].message.content}}",
+        "additionalFields": {}
+      },
+      "id": "28c38ea0-69a9-410c-89f2-7f8e2a72a79c",
+      "name": "Send Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        0
+      ],
+      "webhookId": "2bdb3273-3d03-44c1-8122-de6edbfddcc8",
+      "notesInFlow": true,
+      "notes": "Sends the AI-generated response back to the customer via Telegram."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a6d5a20f-c24d-4dd3-9933-26960b7ae256",
+      "name": "Prepare Booking Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1200,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Extracts and formats booking-related information from the user interaction."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "YOUR_BOOKING_SHEET_ID",
+        "sheetName": "Bookings",
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "3abc32ff-fb42-4e2d-b372-25ffda7ca357",
+      "name": "Save Booking",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1408,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Stores confirmed booking details in the Google Sheets booking database."
+    },
+    {
+      "parameters": {
+        "subject": "Booking Confirmation",
+        "message": "Hello {{$json.customer_name}}, your booking request has been received. Our team will confirm shortly.",
+        "options": {}
+      },
+      "id": "48c3ff69-335e-48b6-af03-16423aed8b4a",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "webhookId": "826808b0-320b-4d54-91ab-54f4b58211be",
+      "notesInFlow": true,
+      "notes": "Sends an automated booking confirmation email to the customer."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Products": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Products": {
+      "main": [
+        [
+          {
+            "node": "Prepare Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Query": {
+      "main": [
+        [
+          {
+            "node": "Groq AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare Booking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking Data": {
+      "main": [
+        [
+          {
+            "node": "Save Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Booking": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f9040824-699b-471e-abc6-70ccb698c981",
+  "meta": {
+    "instanceId": "8c9d99931238ae8c8a20d27bce14f0ddef49b28e08a33bfa439f39491c59b36d"
+  },
+  "id": "aYwPTyQyfP60A2fS",
+  "tags": []
+}
